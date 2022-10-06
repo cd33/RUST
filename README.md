@@ -144,7 +144,54 @@ s.push_str(", world!"); // push_str() appends a literal to a String
 println!("{}", s); // This will print `hello, world!`
 ```
 ### Memory and Allocation
+Avec le type String, afin de prendre en charge un morceau de texte mutable et évolutif, nous devons allouer une quantité de mémoire sur le tas, inconnue au moment de la compilation, pour contenir le contenu. Cela signifie que:  
+  
+La mémoire doit être demandée à l'allocateur de mémoire au moment de l'exécution.
+Nous avons besoin d'un moyen de retourner cette mémoire à l'allocateur quand nous avons fini avec notre String.
+La première partie est réalisée par nous : lorsque nous appelons String::from, son implémentation demande la mémoire dont elle a besoin. C'est à peu près universel dans les langages de programmation.  
+  
+Cependant, la deuxième partie est différente. Dans les langages dotés d'un garbage collector (GC), le GC assure le suivi et le nettoyage de la mémoire qui n'est plus utilisée, et nous n'avons pas besoin d'y penser. Dans la plupart des langages sans GC, il est de notre responsabilité d'identifier le moment où la mémoire n'est plus utilisée et d'appeler le code pour la libérer explicitement, tout comme nous l'avons fait pour la demander. Faire cela correctement a toujours été un problème de programmation difficile. Si nous oublions, nous gaspillons de la mémoire. Si nous le faisons trop tôt, nous aurons une variable invalide. Si nous le faisons deux fois, c'est aussi un bug. Nous devons associer exactement un "allocate" avec exactement un "free".  
+  
+Rust prend un chemin différent : la mémoire est automatiquement retournée une fois que la variable qui la possède sort de la portée.
+```
+{
+    let s = String::from("hello"); // s is valid from this point forward
 
+}                                  // this scope is now over, and s is no longer valid
+```
+Quand une variable sort de son périmètre, Rust appelle une fonction spéciale pour nous. Cette fonction est appelée drop, et c'est là que l'auteur de String peut placer le code pour retourner la mémoire. Rust appelle automatiquement drop au niveau du crochet fermant.  
+  
+Ce modèle a un impact profond sur la façon dont le code Rust est écrit. Il peut sembler simple pour le moment, mais le comportement du code peut être inattendu dans des situations plus compliquées, lorsque nous voulons que plusieurs variables utilisent les données que nous avons allouées sur le tas.  
+
+### Façons dont les variables et les données interagissent: Move
+```
+let x = 5;
+let y = x;
+```
+Les entiers sont des valeurs simples dont la taille est connue et fixe, et ces deux valeurs 5 sont poussées sur la pile.
+```
+let s1 = String::from("hello");
+let s2 = s1;
+```
+Lorsque nous assignons s1 à s2, les données de la chaîne sont copiées, ce qui signifie que nous copions le pointeur, la longueur et la capacité qui se trouvent sur la pile. Nous ne copions pas les données du tas auxquelles le pointeur fait référence (ex: h,e,l,l,o).  
+  
+Plus tôt, nous avons dit que lorsqu'une variable sort de son champ d'application, Rust appelle automatiquement la fonction drop et nettoie la mémoire du tas pour cette variable. Mais les deux pointeurs de données pointent vers le même emplacement. C'est un problème : lorsque s2 et s1 sortent du champ d'application, ils vont tous deux essayer de libérer la même mémoire. C'est ce qu'on appelle une erreur de double libération et c'est l'un des bogues de sécurité de la mémoire que nous avons mentionnés précédemment. Libérer deux fois la mémoire peut conduire à une corruption de la mémoire, ce qui peut potentiellement conduire à des failles de sécurité.  
+  
+Pour assurer la sécurité de la mémoire, après la ligne let s2 = s1, Rust considère que s1 n'est plus valide. Par conséquent, Rust n'a pas besoin de libérer quoi que ce soit lorsque s1 sort de sa portée.
+```
+let s1 = String::from("hello");
+let s2 = s1;
+println!("{}, world!", s1); // ERROR
+```
+Comme Rust invalide la première variable, on parle de déplacement (move).
+
+### Façons dont les variables et les données interagissent: Clone
+Si nous voulons copier profondément les données du tas de la chaîne, et pas seulement les données de la pile, nous pouvons utiliser une méthode commune appelée clone.  
+```
+let s1 = String::from("hello");
+let s2 = s1.clone();
+println!("s1 = {}, s2 = {}", s1, s2);
+```
 
 ## References and Borrowing
 https://doc.rust-lang.org/stable/book/ch04-02-references-and-borrowing.html  
@@ -231,6 +278,85 @@ for i in v.iter_mut() {
 ```
 Pour modifier la valeur à laquelle la référence mutable fait référence, nous devons utiliser l'opérateur de déréférencement * pour atteindre la valeur dans i
 
+## Struct
+```
+fn main() {
+    let mut user1 = User {
+        email: String::from("someone@example.com"),
+        username: String::from("someusername123"),
+        active: true,
+        sign_in_count: 1,
+    };
+
+    user1.email = String::from("anotheremail@example.com");
+}
+```
+Notez que l'instance entière doit être mutable ; Rust ne nous permet pas de marquer seulement certains champs comme mutables. Comme pour toute expression, nous pouvons construire une nouvelle instance de la structure en tant que dernière expression du corps de la fonction pour retourner implicitement cette nouvelle instance.
+```
+fn build_user(email: String, username: String) -> User {
+    User {
+        email: email, // Possibilité de juste écrire email, field init shorthand syntax
+        username: username, // Possibilité de juste écrire username, field init shorthand syntax
+        active: true,
+        sign_in_count: 1,
+    }
+}
+```
+### Création d'instances à partir d'autres instances avec la syntaxe Struct Update
+```
+let user2 = User {
+    active: user1.active,
+    username: user1.username,
+    email: String::from("another@example.com"),
+    sign_in_count: user1.sign_in_count,
+};
+```
+ou
+```
+let user2 = User {
+    email: String::from("another@example.com"),
+    ..user1
+};
+```
+### Using Tuple Structs without Named Fields to Create Different Types
+```
+struct Color(i32, i32, i32);
+struct Point(i32, i32, i32);
+
+fn main() {
+    let black = Color(0, 0, 0);
+    let origin = Point(0, 0, 0);
+}
+```
+
+## Method
+Les méthodes sont similaires aux fonctions: nous les déclarons avec le mot-clé fn et un nom, elles peuvent avoir des paramètres et une valeur de retour, et elles contiennent du code qui est exécuté lorsque la méthode est appelée depuis un autre endroit. Contrairement aux fonctions, les méthodes sont définies dans le contexte d'une structure (ou d'un enum ou d'un objet trait), et leur premier paramètre est toujours self, qui représente l'instance de la structure sur laquelle la méthode est appelée.
+```
+struct Rectangle {
+    width: u32,
+    height: u32,
+}
+
+impl Rectangle {
+    fn area(&self) -> u32 {
+        self.width * self.height
+    }
+}
+
+fn main() {
+    let rect1 = Rectangle {
+        width: 30,
+        height: 50,
+    };
+
+    println!(
+        "The area of the rectangle is {} square pixels.",
+        rect1.area()
+    );
+}
+```
+Pour définir la fonction dans le contexte de Rectangle, nous commençons un bloc impl (implémentation) pour Rectangle. Tout ce qui se trouve dans ce bloc impl sera associé au type Rectangle. Ensuite, nous déplaçons la fonction area à l'intérieur des crochets impl et changeons le premier (et dans ce cas, le seul) paramètre pour être self dans la signature et partout dans le corps. Dans main, où nous avons appelé la fonction area et passé rect1 comme argument, nous pouvons utiliser la method syntax pour appeler la méthode area sur notre instance Rectangle. La syntaxe de la méthode se place après une instance : nous ajoutons un point suivi du nom de la méthode, des parenthèses et des arguments éventuels.  
+Le &self est en fait l'abréviation de self : &Self
 
 ### Autre Commandes
 rustup update  

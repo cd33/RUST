@@ -358,6 +358,37 @@ fn main() {
 Pour définir la fonction dans le contexte de Rectangle, nous commençons un bloc impl (implémentation) pour Rectangle. Tout ce qui se trouve dans ce bloc impl sera associé au type Rectangle. Ensuite, nous déplaçons la fonction area à l'intérieur des crochets impl et changeons le premier (et dans ce cas, le seul) paramètre pour être self dans la signature et partout dans le corps. Dans main, où nous avons appelé la fonction area et passé rect1 comme argument, nous pouvons utiliser la method syntax pour appeler la méthode area sur notre instance Rectangle. La syntaxe de la méthode se place après une instance : nous ajoutons un point suivi du nom de la méthode, des parenthèses et des arguments éventuels.  
 Le &self est en fait l'abréviation de self : &Self
 
+## Loop boucle infini, break pour l'arreter
+```
+loop {
+    count += 1;
+    if count == 5 {break}
+}
+```
+
+## Aléatoire, Random
+```
+// Dans Cargo.toml
+[dependencies]
+rand = "0.8.3"
+
+use rand::Rng;
+// Générer un nombre aléatoire entre 1 et 100 compris
+let nombre_secret = rand::thread_rng().gen_range(1..101);
+```
+
+## Parse
+parse() retourne le type Result qui a les énumérations Ok et Err  
+Si parse fonctionne il retourne Ok sinon Err
+```
+let supposition = match supposition.trim().parse::<u8>() {
+    Ok(nombre) => nombre,
+    Err(_) => continue,
+};
+```
+
+
+
 ### Autre Commandes
 rustup update  
 (rustup est le manager de version de rust)  

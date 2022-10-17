@@ -1,5 +1,5 @@
 *.swp
-target/
+target
 **/*.rs.bk
 .DS_Store
 *.pdb

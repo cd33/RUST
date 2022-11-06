@@ -22,6 +22,9 @@ Cargo est le package manager de rust, comme npm.
 * Compiler avec optimisation (ex: production): cargo build --release
 * Compiler sans créer un binaire: cargo check
 
+Ajouter les dépendances dans Cargo.toml, [dependencies]  
+Pour connaitre les versions des dependances : https://crates.io/crates/rand
+
 ## Variables and Mutability
 Dans rust les variables sont immutables par défaut.  
 Pour les rendre mutables, il faut ajouter mut devant le nom de la variable.  
